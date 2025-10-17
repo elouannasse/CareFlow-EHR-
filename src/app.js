@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import patientRoutes from "./routes/patient.routes.js";
+import appointmentRoutes from "./routes/appointment.routes.js";
 
 // Load environment variables
 dotenv.config();
@@ -47,6 +48,7 @@ app.get("/", (req, res) => {
       auth: "/api/v1/auth",
       users: "/api/v1/users",
       patients: "/api/v1/patients",
+      appointments: "/api/v1/appointments",
     },
     features: [
       "Authentification JWT",
@@ -64,6 +66,7 @@ app.get("/", (req, res) => {
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/patients", patientRoutes);
+app.use("/api/v1/appointments", appointmentRoutes);
 
 // Handle 404 errors - catch all unmatched routes
 app.use((req, res) => {
@@ -77,6 +80,7 @@ app.use((req, res) => {
       auth: "/api/v1/auth",
       users: "/api/v1/users",
       patients: "/api/v1/patients",
+      appointments: "/api/v1/appointments",
     },
   });
 });

@@ -1,7 +1,6 @@
 import Patient from "../models/Patient.js";
 import Joi from "joi";
 
-// Schémas de validation Joi
 const createPatientSchema = Joi.object({
   firstName: Joi.string().min(2).max(50).required(),
   lastName: Joi.string().min(2).max(50).required(),
@@ -130,10 +129,8 @@ const updatePatientSchema = Joi.object({
   notes: Joi.string().max(1000).optional(),
 });
 
-// 📝 CREATE - Créer un patient
 export const createPatient = async (req, res) => {
   try {
-    // Validation des données
     const { error, value } = createPatientSchema.validate(req.body);
     if (error) {
       return res.status(400).json({
@@ -143,7 +140,6 @@ export const createPatient = async (req, res) => {
       });
     }
 
-    // Vérifier si l'email existe déjà
     const existingPatient = await Patient.findOne({ email: value.email });
     if (existingPatient) {
       return res.status(409).json({
@@ -152,7 +148,6 @@ export const createPatient = async (req, res) => {
       });
     }
 
-    // Créer le patient
     const patient = new Patient({
       ...value,
       createdBy: req.user.id,
@@ -160,7 +155,6 @@ export const createPatient = async (req, res) => {
 
     await patient.save();
 
-    // Peupler les informations du créateur
     await patient.populate("createdBy", "firstName lastName email role");
 
     res.status(201).json({
@@ -177,7 +171,6 @@ export const createPatient = async (req, res) => {
   }
 };
 
-// 📖 READ - Obtenir tous les patients avec pagination, filtres et recherche
 export const getAllPatients = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -209,7 +202,6 @@ export const getAllPatients = async (req, res) => {
       }
     }
 
-    // Recherche par nom, prénom ou email
     if (req.query.search) {
       filters.$or = [
         { firstName: { $regex: req.query.search, $options: "i" } },
@@ -218,7 +210,6 @@ export const getAllPatients = async (req, res) => {
       ];
     }
 
-    // Tri
     let sortOptions = { createdAt: -1 };
     if (req.query.sortBy) {
       const sortField = req.query.sortBy;
@@ -234,7 +225,6 @@ export const getAllPatients = async (req, res) => {
       .skip(skip)
       .limit(limit);
 
-    // Ajouter l'âge calculé à chaque patient
     const patientsWithAge = patients.map((patient) => ({
       ...patient.toObject(),
       age: patient.getAge(),
@@ -262,7 +252,6 @@ export const getAllPatients = async (req, res) => {
   }
 };
 
-// 📖 READ - Obtenir un patient par ID
 export const getPatientById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -278,7 +267,6 @@ export const getPatientById = async (req, res) => {
       });
     }
 
-    // Ajouter l'âge calculé
     const patientWithAge = {
       ...patient.toObject(),
       age: patient.getAge(),
@@ -297,7 +285,6 @@ export const getPatientById = async (req, res) => {
   }
 };
 
-// 🔍 SEARCH - Recherche avancée de patients
 export const searchPatients = async (req, res) => {
   try {
     const { query, filters = {} } = req.body;
@@ -307,18 +294,15 @@ export const searchPatients = async (req, res) => {
 
     let searchFilters = { isActive: true };
 
-    // Recherche textuelle
     if (query) {
       searchFilters.$text = { $search: query };
     }
 
-    // Filtres additionnels
     if (filters.gender) searchFilters.gender = filters.gender;
     if (filters.bloodType) searchFilters.bloodType = filters.bloodType;
     if (filters.city)
       searchFilters["address.city"] = { $regex: filters.city, $options: "i" };
 
-    // Filtre par allergies
     if (filters.allergy) {
       searchFilters["allergies.name"] = {
         $regex: filters.allergy,
@@ -326,7 +310,6 @@ export const searchPatients = async (req, res) => {
       };
     }
 
-    // Filtre par condition médicale
     if (filters.condition) {
       searchFilters["medicalHistory.condition"] = {
         $regex: filters.condition,
@@ -368,12 +351,10 @@ export const searchPatients = async (req, res) => {
   }
 };
 
-// ✏️ UPDATE - Mettre à jour un patient
 export const updatePatient = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Validation des données
     const { error, value } = updatePatientSchema.validate(req.body);
     if (error) {
       return res.status(400).json({
@@ -383,7 +364,6 @@ export const updatePatient = async (req, res) => {
       });
     }
 
-    // Vérifier si le patient existe
     const patient = await Patient.findById(id);
     if (!patient || !patient.isActive) {
       return res.status(404).json({
@@ -392,7 +372,6 @@ export const updatePatient = async (req, res) => {
       });
     }
 
-    // Vérifier l'email unique si changé
     if (value.email && value.email !== patient.email) {
       const existingPatient = await Patient.findOne({
         email: value.email,
@@ -407,7 +386,6 @@ export const updatePatient = async (req, res) => {
       }
     }
 
-    // Mettre à jour le patient
     const updatedPatient = await Patient.findByIdAndUpdate(
       id,
       {
@@ -437,7 +415,6 @@ export const updatePatient = async (req, res) => {
   }
 };
 
-// 🗑️ DELETE - Supprimer un patient (soft delete)
 export const deletePatient = async (req, res) => {
   try {
     const { id } = req.params;
@@ -450,7 +427,6 @@ export const deletePatient = async (req, res) => {
       });
     }
 
-    // Soft delete - désactiver au lieu de supprimer
     patient.isActive = false;
     patient.lastUpdatedBy = req.user.id;
     await patient.save();
@@ -468,24 +444,20 @@ export const deletePatient = async (req, res) => {
   }
 };
 
-// 📊 Statistiques des patients
 export const getPatientStats = async (req, res) => {
   try {
     const totalPatients = await Patient.countDocuments({ isActive: true });
 
-    // Statistiques par genre
     const genderStats = await Patient.aggregate([
       { $match: { isActive: true } },
       { $group: { _id: "$gender", count: { $sum: 1 } } },
     ]);
 
-    // Statistiques par groupe sanguin
     const bloodTypeStats = await Patient.aggregate([
       { $match: { isActive: true } },
       { $group: { _id: "$bloodType", count: { $sum: 1 } } },
     ]);
 
-    // Statistiques par tranche d'âge
     const ageStats = await Patient.aggregate([
       { $match: { isActive: true } },
       {
