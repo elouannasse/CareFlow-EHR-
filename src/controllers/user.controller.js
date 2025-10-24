@@ -1,12 +1,11 @@
-import User from "../models/User.js";
+﻿import User from "../models/User.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import Joi from "joi";
 
-// Schémas de validation Joi
 const createUserSchema = Joi.object({
-  firstName: Joi.string().min(2).max(50).required(),
-  lastName: Joi.string().min(2).max(50).required(),
+  firstName: Joi.string().required(),
+  lastName: Joi.string().required(),
   email: Joi.string().email().required(),
   password: Joi.string().min(6).required(),
   role: Joi.string()
@@ -16,8 +15,8 @@ const createUserSchema = Joi.object({
 });
 
 const updateUserSchema = Joi.object({
-  firstName: Joi.string().min(2).max(50).optional(),
-  lastName: Joi.string().min(2).max(50).optional(),
+  firstName: Joi.string().optional(),
+  lastName: Joi.string().optional(),
   email: Joi.string().email().optional(),
   phoneNumber: Joi.string().optional(),
   role: Joi.string()
@@ -30,10 +29,8 @@ const changePasswordSchema = Joi.object({
   newPassword: Joi.string().min(6).required(),
 });
 
-// 📝 CREATE - Créer un utilisateur
 export const createUser = async (req, res) => {
   try {
-    // Validation des données
     const { error, value } = createUserSchema.validate(req.body);
     if (error) {
       return res.status(400).json({
@@ -45,7 +42,6 @@ export const createUser = async (req, res) => {
 
     const { firstName, lastName, email, password, role, phoneNumber } = value;
 
-    // Vérifier si l'email existe déjà
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({
@@ -54,7 +50,6 @@ export const createUser = async (req, res) => {
       });
     }
 
-    // Vérifier les permissions pour créer certains rôles
     if (["admin", "doctor"].includes(role) && req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
@@ -62,7 +57,6 @@ export const createUser = async (req, res) => {
       });
     }
 
-    // Créer l'utilisateur
     const user = new User({
       firstName,
       lastName,
@@ -88,14 +82,12 @@ export const createUser = async (req, res) => {
   }
 };
 
-// 📖 READ - Obtenir tous les utilisateurs avec pagination et filtres
 export const getAllUsers = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    // Filtres
     const filters = {};
     if (req.query.role) filters.role = req.query.role;
     if (req.query.isActive !== undefined)
@@ -103,7 +95,6 @@ export const getAllUsers = async (req, res) => {
     if (req.query.isSuspended !== undefined)
       filters.isSuspended = req.query.isSuspended === "true";
 
-    // Recherche par nom/email
     if (req.query.search) {
       filters.$or = [
         { firstName: { $regex: req.query.search, $options: "i" } },
@@ -141,7 +132,6 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-// 📖 READ - Obtenir un utilisateur par ID
 export const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -168,12 +158,10 @@ export const getUserById = async (req, res) => {
   }
 };
 
-// ✏️ UPDATE - Mettre à jour un utilisateur
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Validation des données
     const { error, value } = updateUserSchema.validate(req.body);
     if (error) {
       return res.status(400).json({
@@ -183,7 +171,6 @@ export const updateUser = async (req, res) => {
       });
     }
 
-    // Vérifier si l'utilisateur existe
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({
@@ -192,7 +179,6 @@ export const updateUser = async (req, res) => {
       });
     }
 
-    // Vérifier les permissions
     if (req.user.id !== id && req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
@@ -200,7 +186,6 @@ export const updateUser = async (req, res) => {
       });
     }
 
-    // Vérifier l'email unique si changé
     if (value.email && value.email !== user.email) {
       const existingUser = await User.findOne({ email: value.email });
       if (existingUser) {
@@ -211,7 +196,6 @@ export const updateUser = async (req, res) => {
       }
     }
 
-    // Vérifier les permissions pour changer le rôle
     if (value.role && req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
@@ -219,7 +203,6 @@ export const updateUser = async (req, res) => {
       });
     }
 
-    // Mettre à jour l'utilisateur
     const updatedUser = await User.findByIdAndUpdate(
       id,
       { ...value, updatedAt: new Date() },
@@ -240,12 +223,10 @@ export const updateUser = async (req, res) => {
   }
 };
 
-// 🔒 Changer le mot de passe
 export const changePassword = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Validation des données
     const { error, value } = changePasswordSchema.validate(req.body);
     if (error) {
       return res.status(400).json({
@@ -257,7 +238,6 @@ export const changePassword = async (req, res) => {
 
     const { currentPassword, newPassword } = value;
 
-    // Vérifier si l'utilisateur peut changer ce mot de passe
     if (req.user.id !== id && req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
@@ -265,7 +245,6 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // Récupérer l'utilisateur avec le mot de passe
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({
@@ -274,7 +253,6 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // Vérifier le mot de passe actuel (sauf pour admin)
     if (req.user.role !== "admin") {
       const isCurrentPasswordValid = await user.comparePassword(
         currentPassword
@@ -287,7 +265,6 @@ export const changePassword = async (req, res) => {
       }
     }
 
-    // Mettre à jour le mot de passe
     user.password = newPassword;
     await user.save();
 
@@ -304,13 +281,11 @@ export const changePassword = async (req, res) => {
   }
 };
 
-// ⏸️ Suspendre un utilisateur
 export const suspendUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
 
-    // Seuls les admins peuvent suspendre
     if (req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
@@ -333,7 +308,6 @@ export const suspendUser = async (req, res) => {
       });
     }
 
-    // Suspendre l'utilisateur
     user.isSuspended = true;
     user.suspendedBy = req.user.id;
     user.suspendedAt = new Date();
@@ -354,12 +328,10 @@ export const suspendUser = async (req, res) => {
   }
 };
 
-// ▶️ Réactiver un utilisateur
 export const unsuspendUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Seuls les admins peuvent réactiver
     if (req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
@@ -382,7 +354,6 @@ export const unsuspendUser = async (req, res) => {
       });
     }
 
-    // Réactiver l'utilisateur
     user.isSuspended = false;
     user.suspendedBy = undefined;
     user.suspendedAt = undefined;
@@ -403,12 +374,10 @@ export const unsuspendUser = async (req, res) => {
   }
 };
 
-// 🗑️ DELETE - Supprimer un utilisateur (soft delete)
 export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Seuls les admins peuvent supprimer
     if (req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
@@ -424,7 +393,6 @@ export const deleteUser = async (req, res) => {
       });
     }
 
-    // Empêcher la suppression de son propre compte
     if (req.user.id === id) {
       return res.status(400).json({
         success: false,
@@ -432,7 +400,6 @@ export const deleteUser = async (req, res) => {
       });
     }
 
-    // Soft delete - désactiver au lieu de supprimer
     user.isActive = false;
     await user.save();
 
@@ -449,7 +416,6 @@ export const deleteUser = async (req, res) => {
   }
 };
 
-// 📊 Statistiques des utilisateurs (Admin seulement)
 export const getUserStats = async (req, res) => {
   try {
     if (req.user.role !== "admin") {

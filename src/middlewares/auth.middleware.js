@@ -1,7 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
-// Middleware d'authentification JWT
 export const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -14,11 +13,8 @@ export const authenticate = async (req, res, next) => {
     }
 
     const token = authHeader.substring(7);
-
-    // Vérifier le token
     const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
 
-    // Récupérer l'utilisateur depuis la base de données
     const user = await User.findById(decoded.id).select(
       "-password -refreshToken"
     );
@@ -30,7 +26,6 @@ export const authenticate = async (req, res, next) => {
       });
     }
 
-    // Vérifier si l'utilisateur est actif
     if (!user.isActive) {
       return res.status(401).json({
         success: false,
@@ -38,7 +33,6 @@ export const authenticate = async (req, res, next) => {
       });
     }
 
-    // Vérifier si l'utilisateur est suspendu
     if (user.isSuspended) {
       return res.status(401).json({
         success: false,
@@ -46,7 +40,6 @@ export const authenticate = async (req, res, next) => {
       });
     }
 
-    // Attacher l'utilisateur à la requête
     req.user = user;
     next();
   } catch (error) {
@@ -70,7 +63,6 @@ export const authenticate = async (req, res, next) => {
   }
 };
 
-// Middleware d'autorisation par rôles
 export const authorize = (...allowedRoles) => {
   return (req, res, next) => {
     if (!req.user) {
@@ -80,7 +72,10 @@ export const authorize = (...allowedRoles) => {
       });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    const userRole = req.user.role.toLowerCase().trim();
+    const roles = allowedRoles.map((r) => r.toLowerCase().trim());
+
+    if (!roles.includes(userRole)) {
       return res.status(403).json({
         success: false,
         message: "Permissions insuffisantes",
@@ -93,16 +88,13 @@ export const authorize = (...allowedRoles) => {
   };
 };
 
-// Middleware pour vérifier si l'utilisateur peut modifier une ressource
 export const canModifyResource = (req, res, next) => {
   const { id } = req.params;
 
-  // Admin peut tout modifier
-  if (req.user.role === "admin") {
+  if (req.user.role.toLowerCase().trim() === "admin") {
     return next();
   }
 
-  // L'utilisateur peut modifier ses propres données
   if (req.user.id === id) {
     return next();
   }
@@ -113,9 +105,9 @@ export const canModifyResource = (req, res, next) => {
   });
 };
 
-// Middleware pour les opérations médicales (doctors, nurses)
 export const medicalStaffOnly = (req, res, next) => {
-  if (!["admin", "doctor", "nurse"].includes(req.user.role)) {
+  const role = req.user.role.toLowerCase().trim();
+  if (!["admin", "doctor", "nurse"].includes(role)) {
     return res.status(403).json({
       success: false,
       message: "Accès réservé au personnel médical",
@@ -124,9 +116,8 @@ export const medicalStaffOnly = (req, res, next) => {
   next();
 };
 
-// Middleware pour les opérations administratives
 export const adminOnly = (req, res, next) => {
-  if (req.user.role !== "admin") {
+  if (req.user.role.toLowerCase().trim() !== "admin") {
     return res.status(403).json({
       success: false,
       message: "Accès réservé aux administrateurs",
@@ -135,12 +126,12 @@ export const adminOnly = (req, res, next) => {
   next();
 };
 
-// Middleware pour le personnel avec accès patients (doctors, nurses, secretaries)
 export const patientAccessStaff = (req, res, next) => {
-  if (!["admin", "doctor", "nurse", "secretary"].includes(req.user.role)) {
+  const role = req.user.role.toLowerCase().trim();
+  if (!["admin", "doctor", "nurse", "secretary"].includes(role)) {
     return res.status(403).json({
       success: false,
-      message: "Accès réservé au personnel autorisé",
+      message: "Accès réservé au personnel autorisé", 
     });
   }
   next();

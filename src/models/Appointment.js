@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 
 const appointmentSchema = new mongoose.Schema(
   {
@@ -50,6 +50,19 @@ const appointmentSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    cancelledAt: {
+      type: Date,
+    },
+
+    cancellationReason: {
+      type: String,
+      trim: true,
+      maxlength: [
+        500,
+        "La raison d'annulation ne peut pas dépasser 500 caractères",
+      ],
+    },
   },
   {
     timestamps: true,
@@ -71,7 +84,7 @@ appointmentSchema.methods.getDurationInMinutes = function () {
 appointmentSchema.pre("save", function (next) {
   if (this.endTime <= this.startTime) {
     const error = new Error("L'heure de fin doit être après l'heure de début");
-    return next(error);
+    return next(error); 
   }
   next();
 });

@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 
 const PatientSchema = new mongoose.Schema(
   {
@@ -41,7 +41,6 @@ const PatientSchema = new mongoose.Schema(
       ],
     },
 
-    // Adresse
     address: {
       street: { type: String, required: true, trim: true },
       city: { type: String, required: true, trim: true },
@@ -49,14 +48,12 @@ const PatientSchema = new mongoose.Schema(
       country: { type: String, default: "Maroc", trim: true },
     },
 
-    // Contact d'urgence
     emergencyContact: {
       name: { type: String, required: true, trim: true },
       relationship: { type: String, required: true, trim: true },
       phoneNumber: { type: String, required: true, trim: true },
     },
 
-    // Informations médicales
     bloodType: {
       type: String,
       enum: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Inconnu"],
@@ -98,7 +95,6 @@ const PatientSchema = new mongoose.Schema(
       },
     ],
 
-    // Informations assurance
     insurance: {
       provider: { type: String, trim: true },
       policyNumber: { type: String, trim: true },
@@ -106,7 +102,6 @@ const PatientSchema = new mongoose.Schema(
       validUntil: { type: Date },
     },
 
-    // Statut et métadonnées
     isActive: {
       type: Boolean,
       default: true,
@@ -131,17 +126,14 @@ const PatientSchema = new mongoose.Schema(
   }
 );
 
-// Index pour la recherche
 PatientSchema.index({ firstName: "text", lastName: "text", email: "text" });
 PatientSchema.index({ email: 1 });
 PatientSchema.index({ phoneNumber: 1 });
 
-// Méthode pour obtenir le nom complet
 PatientSchema.methods.getFullName = function () {
   return `${this.firstName} ${this.lastName}`;
 };
 
-// Méthode pour calculer l'âge
 PatientSchema.methods.getAge = function () {
   const today = new Date();
   const birthDate = new Date(this.dateOfBirth);
@@ -158,7 +150,6 @@ PatientSchema.methods.getAge = function () {
   return age;
 };
 
-// Middleware pre-save pour la mise à jour
 PatientSchema.pre("save", function (next) {
   if (this.isModified() && !this.isNew) {
     this.updatedAt = new Date();

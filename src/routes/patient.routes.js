@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import {
   createPatient,
   getAllPatients,
@@ -7,6 +7,7 @@ import {
   updatePatient,
   deletePatient,
   getPatientStats,
+  getPatientProfile,
 } from "../controllers/patient.controller.js";
 import {
   authenticate,
@@ -18,34 +19,16 @@ import {
 
 const router = express.Router();
 
-// 📝 Routes CRUD Patients
 
-/**
- * @route   POST /api/patients
- * @desc    Créer un nouveau patient
- * @access  Personnel médical et secrétaires
- */
 router.post("/", authenticate, patientAccessStaff, createPatient);
 
-/**
- * @route   GET /api/patients
- * @desc    Obtenir tous les patients (avec pagination et filtres)
- * @access  Personnel médical et secrétaires
- */
+
 router.get("/", authenticate, patientAccessStaff, getAllPatients);
 
-/**
- * @route   POST /api/patients/search
- * @desc    Recherche avancée de patients
- * @access  Personnel médical et secrétaires
- */
+
 router.post("/search", authenticate, patientAccessStaff, searchPatients);
 
-/**
- * @route   GET /api/patients/stats
- * @desc    Obtenir les statistiques des patients
- * @access  Personnel médical et admin
- */
+
 router.get(
   "/stats",
   authenticate,
@@ -53,25 +36,20 @@ router.get(
   getPatientStats
 );
 
-/**
- * @route   GET /api/patients/:id
- * @desc    Obtenir un patient par ID
- * @access  Personnel médical et secrétaires
- */
+
 router.get("/:id", authenticate, patientAccessStaff, getPatientById);
 
-/**
- * @route   PUT /api/patients/:id
- * @desc    Mettre à jour un patient
- * @access  Personnel médical et secrétaires
- */
+
+router.get(
+  "/:id/profile",
+  authenticate,
+  authorize(["doctor", "nurse", "admin"]),
+  getPatientProfile
+);
+
+
 router.put("/:id", authenticate, patientAccessStaff, updatePatient);
 
-/**
- * @route   DELETE /api/patients/:id
- * @desc    Supprimer un patient (soft delete)
- * @access  Personnel médical et admin
- */
 router.delete(
   "/:id",
   authenticate,
@@ -79,13 +57,8 @@ router.delete(
   deletePatient
 );
 
-// 📋 Routes spécialisées pour les données médicales
 
-/**
- * @route   POST /api/patients/:id/allergies
- * @desc    Ajouter une allergie à un patient
- * @access  Personnel médical seulement
- */
+
 router.post(
   "/:id/allergies",
   authenticate,
@@ -103,7 +76,7 @@ router.post(
         });
       }
 
-      patient.allergies.push({ name, severity, description });  
+      patient.allergies.push({ name, severity, description });
       patient.lastUpdatedBy = req.user.id;
       await patient.save();
 
@@ -122,11 +95,7 @@ router.post(
   }
 );
 
-/**
- * @route   POST /api/patients/:id/medical-history
- * @desc    Ajouter un antécédent médical à un patient
- * @access  Personnel médical seulement
- */
+
 router.post(
   "/:id/medical-history",
   authenticate,
@@ -168,11 +137,6 @@ router.post(
   }
 );
 
-/**
- * @route   POST /api/patients/:id/medications
- * @desc    Ajouter un médicament à un patient
- * @access  Doctors seulement
- */
 router.post(
   "/:id/medications",
   authenticate,
@@ -215,11 +179,7 @@ router.post(
   }
 );
 
-/**
- * @route   DELETE /api/patients/:id/allergies/:allergyId
- * @desc    Supprimer une allergie d'un patient
- * @access  Personnel médical seulement
- */
+
 router.delete(
   "/:id/allergies/:allergyId",
   authenticate,

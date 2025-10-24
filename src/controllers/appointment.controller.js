@@ -1,15 +1,15 @@
-import Appointment from "../models/Appointment.js";
+﻿import Appointment from "../models/Appointment.js";
 import User from "../models/User.js";
 
 export const createAppointment = async (req, res) => {
   try {
     const { patient, doctor, startTime, endTime, reason } = req.body;
 
-    if (!patient || !doctor || !startTime || !endTime) { 
+    if (!patient || !doctor || !startTime || !endTime) {
       return res.status(400).json({
         success: false,
         message:
-          "Patient, médecin, heure de début et heure de fin sont obligatoires",
+          "Patient, médecin, heure de début et heure de fin sont obligatoires", 
       });
     }
 
@@ -73,7 +73,7 @@ export const createAppointment = async (req, res) => {
           start: conflictingAppointment.startTime,
           end: conflictingAppointment.endTime,
         },
-      });
+      }); 
     }
 
     const newAppointment = await Appointment.create({
@@ -141,8 +141,8 @@ export const getDoctorAvailability = async (req, res) => {
       });
     }
 
-    const workStartHour = 8; // 08:00
-    const workEndHour = 18; // 18:00
+    const workStartHour = 8;
+    const workEndHour = 18;
 
     const startOfDay = new Date(`${date}T08:00:00.000Z`);
     const endOfDay = new Date(`${date}T18:00:00.000Z`);
@@ -154,7 +154,6 @@ export const getDoctorAvailability = async (req, res) => {
         message: "Format de date invalide. Utilisez YYYY-MM-DD",
       });
     }
-    // ranjib le rendivo mosajala ltbib fhad nhar
     const appointments = await Appointment.find({
       doctor: doctorId,
       status: { $in: ["scheduled", "confirmed"] },
@@ -210,10 +209,8 @@ export const getDoctorAvailability = async (req, res) => {
   }
 };
 
-// Modifier un rendez-vous existant
 export const updateAppointment = async (req, res) => {
   try {
-    
     const { id } = req.params;
     const { startTime, endTime, reason, notes, status } = req.body;
 
@@ -249,21 +246,20 @@ export const updateAppointment = async (req, res) => {
       }
 
       const conflictingAppointment = await Appointment.findOne({
-        _id: { $ne: id }, 
+        _id: { $ne: id },
         doctor: existingAppointment.doctor,
-        status: { $in: ["scheduled", "confirmed"] }, 
+        status: { $in: ["scheduled", "confirmed"] },
         $or: [
-          
           {
             startTime: { $lte: newStartTime },
             endTime: { $gt: newStartTime },
           },
-          
+
           {
             startTime: { $lt: newEndTime },
             endTime: { $gte: newEndTime },
           },
-          
+
           {
             startTime: { $gte: newStartTime },
             endTime: { $lte: newEndTime },
@@ -271,7 +267,6 @@ export const updateAppointment = async (req, res) => {
         ],
       });
 
-     
       if (conflictingAppointment) {
         return res.status(409).json({
           success: false,
@@ -285,7 +280,6 @@ export const updateAppointment = async (req, res) => {
       }
     }
 
-   
     const updateData = {};
 
     if (startTime) updateData.startTime = new Date(startTime);
@@ -294,7 +288,6 @@ export const updateAppointment = async (req, res) => {
     if (notes !== undefined) updateData.notes = notes;
     if (status) updateData.status = status;
 
-    
     const updatedAppointment = await Appointment.findByIdAndUpdate(
       id,
       updateData,
@@ -313,6 +306,93 @@ export const updateAppointment = async (req, res) => {
     });
   } catch (error) {
     console.error("Erreur lors de la modification du rendez-vous:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur interne du serveur",
+      error: error.message,
+    });
+  }
+};
+
+export const cancelAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "L'ID du rendez-vous est obligatoire",
+      });
+    }
+
+    const appointment = await Appointment.findById(id).populate([
+      { path: "patient", select: "firstName lastName email" },
+      { path: "doctor", select: "firstName lastName email" },
+    ]);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Rendez-vous non trouvé",
+      });
+    }
+
+    if (
+      req.user.role === "patient" &&
+      appointment.patient._id.toString() !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Vous ne pouvez annuler que vos propres rendez-vous",
+      });
+    }
+
+    if (appointment.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Ce rendez-vous est déjà annulé",
+        data: {
+          appointment: {
+            id: appointment._id,
+            status: appointment.status,
+            cancelledAt: appointment.cancelledAt,
+            cancellationReason: appointment.cancellationReason,
+          },
+        },
+      });
+    }
+
+    appointment.status = "cancelled";
+
+    appointment.cancelledAt = new Date();
+
+    if (reason) {
+      appointment.cancellationReason = reason;
+    }
+
+    const cancelledAppointment = await appointment.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Rendez-vous annulé avec succès",
+      data: {
+        appointment: {
+          id: cancelledAppointment._id,
+          patient: cancelledAppointment.patient,
+          doctor: cancelledAppointment.doctor,
+          startTime: cancelledAppointment.startTime,
+          endTime: cancelledAppointment.endTime,
+          reason: cancelledAppointment.reason,
+          status: cancelledAppointment.status,
+          cancelledAt: cancelledAppointment.cancelledAt,
+          cancellationReason: cancelledAppointment.cancellationReason,
+          updatedAt: cancelledAppointment.updatedAt,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Erreur lors de l'annulation du rendez-vous:", error);
     res.status(500).json({
       success: false,
       message: "Erreur interne du serveur",

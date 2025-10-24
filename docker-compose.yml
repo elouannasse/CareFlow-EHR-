@@ -1,0 +1,51 @@
+version: "3.8"
+
+services:
+  # Service de base de données MongoDB
+  mongodb:
+    image: mongo:7.0
+    container_name: ehr-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: ehr_database
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - ehr-network
+
+  # Service de l'application Node.js
+  app:
+    build: .
+    container_name: ehr-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/ehr_database?authSource=admin
+      JWT_SECRET: your-super-secret-jwt-key-here
+      JWT_REFRESH_SECRET: your-super-secret-refresh-key-here
+      JWT_EXPIRES_IN: 1d
+      JWT_REFRESH_EXPIRES_IN: 7d
+    depends_on:
+      - mongodb
+    networks:
+      - ehr-network
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+# Volumes pour persister les données
+volumes:
+  mongodb_data:
+
+# Réseau pour permettre la communication entre les services
+networks:
+  ehr-network:
+    driver: bridge

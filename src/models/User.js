@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
 const userSchema = new mongoose.Schema(
@@ -78,18 +78,14 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Index pour la recherche
 userSchema.index({ firstName: "text", lastName: "text", email: "text" });
 userSchema.index({ email: 1 });
 userSchema.index({ role: 1 });
 
-// Middleware pre-save pour hasher le mot de passe
 userSchema.pre("save", async function (next) {
-  // Ne pas hasher si le mot de passe n'a pas été modifié
   if (!this.isModified("password")) return next();
 
   try {
-    // Hasher le mot de passe
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
     next();
@@ -98,22 +94,18 @@ userSchema.pre("save", async function (next) {
   }
 });
 
-// Méthode pour comparer les mots de passe
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Méthode pour obtenir le nom complet
 userSchema.methods.getFullName = function () {
   return `${this.firstName} ${this.lastName}`;
 };
 
-// Méthode pour vérifier si l'utilisateur est actif
 userSchema.methods.isActiveUser = function () {
   return this.isActive && !this.isSuspended;
 };
 
-// Méthode pour exclure le mot de passe des réponses JSON
 userSchema.methods.toJSON = function () {
   const userObject = this.toObject();
   delete userObject.password;

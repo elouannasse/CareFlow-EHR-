@@ -1,4 +1,4 @@
-import User from "../models/User.js";
+﻿import User from "../models/User.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
@@ -10,7 +10,7 @@ export const register = async (req, res) => {
     if (existingUser)
       return res.status(400).json({ message: "Email already exists" });
 
-    // Le hachage se fait automatiquement dans le modèle User via le middleware pre-save
+   
     const user = await User.create({
       firstName,
       lastName,
@@ -41,11 +41,9 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Trouver l'utilisateur par email
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: "User not found" });
 
-    // Utiliser la méthode comparePassword du modèle
     const isMatch = await user.comparePassword(password);
     if (!isMatch) return res.status(400).json({ message: "Invalid password" });
 

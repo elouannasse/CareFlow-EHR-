@@ -1,9 +1,9 @@
-import Patient from "../models/Patient.js";
+﻿import Patient from "../models/Patient.js";
 import Joi from "joi";
 
 const createPatientSchema = Joi.object({
-  firstName: Joi.string().min(2).max(50).required(),
-  lastName: Joi.string().min(2).max(50).required(),
+  firstName: Joi.string().required(),
+  lastName: Joi.string().required(),
   dateOfBirth: Joi.date().required(),
   gender: Joi.string().valid("M", "F", "Autre").required(),
   phoneNumber: Joi.string().required(),
@@ -130,7 +130,9 @@ const updatePatientSchema = Joi.object({
 });
 
 export const createPatient = async (req, res) => {
+  
   try {
+     
     const { error, value } = createPatientSchema.validate(req.body);
     if (error) {
       return res.status(400).json({
@@ -177,7 +179,6 @@ export const getAllPatients = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    // Filtres
     const filters = { isActive: true };
 
     if (req.query.gender) filters.gender = req.query.gender;
@@ -190,7 +191,7 @@ export const getAllPatients = async (req, res) => {
           today.getMonth(),
           today.getDate()
         );
-        filters.dateOfBirth = { $gte: minDate };
+        filters.dateOfBirth = { $gte: minDate }; 
       }
       if (req.query.minAge) {
         const maxDate = new Date(
@@ -508,6 +509,104 @@ export const getPatientStats = async (req, res) => {
   }
 };
 
+export const getPatientProfile = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "L'ID du patient est obligatoire",
+      });
+    }
+
+    const patient = await Patient.findById(id).populate({
+      path: "createdBy lastUpdatedBy",
+      select: "firstName lastName email",
+    });
+
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: "Patient non trouvé",
+      });
+    }
+
+    const { default: Appointment } = await import("../models/Appointment.js");
+
+    const appointments = await Appointment.find({
+      patient: id,
+    })
+      .populate({
+        path: "doctor",
+        select: "firstName lastName email role",
+      })
+      .sort({ startTime: -1 });
+
+    const now = new Date();
+    const upcomingAppointments = appointments.filter(
+      (apt) => new Date(apt.startTime) >= now
+    );
+    const pastAppointments = appointments.filter(
+      (apt) => new Date(apt.startTime) < now
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Profil patient récupéré avec succès",
+      data: {
+        patient: {
+          id: patient._id,
+          firstName: patient.firstName,
+          lastName: patient.lastName,
+          fullName: `${patient.firstName} ${patient.lastName}`,
+          email: patient.email,
+          phoneNumber: patient.phoneNumber,
+          dateOfBirth: patient.dateOfBirth,
+          age: patient.age,
+          gender: patient.gender,
+          bloodType: patient.bloodType,
+          address: patient.address,
+          emergencyContact: patient.emergencyContact,
+          allergies: patient.allergies,
+          medications: patient.medications,
+          medicalHistory: patient.medicalHistory,
+          insurance: patient.insurance,
+          isActive: patient.isActive,
+          createdAt: patient.createdAt,
+          updatedAt: patient.updatedAt,
+          createdBy: patient.createdBy,
+          lastUpdatedBy: patient.lastUpdatedBy,
+        },
+        appointments: {
+          total: appointments.length,
+          upcoming: {
+            count: upcomingAppointments.length,
+            list: upcomingAppointments,
+          },
+          past: {
+            count: pastAppointments.length,
+            list: pastAppointments,
+          },
+        },
+        summary: {
+          totalAppointments: appointments.length,
+          upcomingAppointments: upcomingAppointments.length,
+          pastAppointments: pastAppointments.length,
+          lastAppointment: appointments.length > 0 ? appointments[0] : null,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Erreur lors de la récupération du profil patient:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur interne du serveur",
+      error: error.message,
+    });
+  }
+};
+
 export default {
   createPatient,
   getAllPatients,
@@ -516,4 +615,5 @@ export default {
   updatePatient,
   deletePatient,
   getPatientStats,
+  getPatientProfile,
 };
